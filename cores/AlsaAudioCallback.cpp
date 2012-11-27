@@ -10,7 +10,6 @@ AlsaAudioCallback::AlsaAudioCallback()
 
 AlsaAudioCallback::~AlsaAudioCallback() {
   if (NULL != pcm_handle_) {
-    //snd_pcm_drain(pcm_handle_);
     snd_pcm_close(pcm_handle_);
     pcm_handle_ = NULL;
   }
@@ -49,8 +48,7 @@ void AlsaAudioCallback::OnInitialize(int iChannels,
 
   snd_pcm_hw_params_set_rate(pcm_handle_, pcm_params_, iSamplesPerSec, 0);
 
-  // TODO(jmeady): Check if OMXPlayer can adjust this.
-
+  // TODO(jmeady): Check if OMXPlayer adjusts this.
   snd_pcm_uframes_t frames = 4608 / 4;
   int frames_dir = 0;
   snd_pcm_hw_params_set_period_size_near(pcm_handle_,
@@ -62,20 +60,6 @@ void AlsaAudioCallback::OnInitialize(int iChannels,
          frames_dir);
 
   printf("Can pause: %d\n", snd_pcm_hw_params_can_pause(pcm_params_));
-
-  /*unsigned long buffer_size = 0;
-  snd_pcm_hw_params_get_buffer_size(pcm_params_, &buffer_size);
-  printf("Buffer time defaults to %u\n", buffer_size);
-  buffer_size = frames * 128 * 8;
-  printf("Asking for %u\n", buffer_size);
-  rc = snd_pcm_hw_params_set_buffer_size_near(pcm_handle_, pcm_params_, &buffer_size);
-  printf("Buffer size returned %u\n", buffer_size);
-  snd_pcm_hw_params_get_buffer_size(pcm_params_, &buffer_size);
-  printf("Result of setting buffer: %d -> %u\n", rc, buffer_size);
-  if (rc < 0) {
-    fprintf(stderr, "Unable to set buffer size: %s\n", snd_strerror(rc));
-    exit(1);
-  }*/
 
   rc = snd_pcm_hw_params(pcm_handle_, pcm_params_);
   if (rc < 0) {
