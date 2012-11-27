@@ -56,6 +56,8 @@ extern "C" {
 #include "OMXPlayerSubtitles.h"
 #include "DllOMX.h"
 
+#include "cores/AlsaAudioCallback.h"
+
 #include <string>
 
 enum PCMChannels  *m_pChannelMap        = NULL;
@@ -92,6 +94,7 @@ bool              m_has_audio           = false;
 bool              m_has_subtitle        = false;
 float             m_display_aspect      = 0.0f;
 bool              m_boost_on_downmix    = false;
+AlsaAudioCallback m_alsa_audio_callback;
 
 enum{ERROR=-1,SUCCESS,ONEBYTE};
 
@@ -523,6 +526,8 @@ int main(int argc, char *argv[])
                                          m_boost_on_downmix, m_thread_player))
     goto do_exit;
 
+  m_player_audio.RegisterAudioCallback(&m_alsa_audio_callback);
+
   m_av_clock->SetSpeed(DVD_PLAYSPEED_NORMAL);
   m_av_clock->OMXStateExecute();
   m_av_clock->OMXStart();
@@ -662,11 +667,13 @@ int main(int argc, char *argv[])
         {
           SetSpeed(OMX_PLAYSPEED_PAUSE);
           m_av_clock->OMXPause();
+          m_alsa_audio_callback.Pause();
         }
         else
         {
           SetSpeed(OMX_PLAYSPEED_NORMAL);
           m_av_clock->OMXResume();
+          m_alsa_audio_callback.Resume();
         }
         break;
       case '-':
@@ -747,7 +754,8 @@ int main(int argc, char *argv[])
         if(!m_av_clock->OMXIsPaused())
         {
           m_av_clock->OMXPause();
-          //printf("buffering start\n");
+          m_alsa_audio_callback.Pause();
+          printf("buffering start\n");
           m_buffer_empty = true;
           clock_gettime(CLOCK_REALTIME, &starttime);
         }
@@ -757,7 +765,8 @@ int main(int argc, char *argv[])
         if(m_av_clock->OMXIsPaused())
         {
           m_av_clock->OMXResume();
-          //printf("buffering end\n");
+          m_alsa_audio_callback.Resume();
+          printf("buffering end\n");
           m_buffer_empty = false;
         }
       }
@@ -768,7 +777,7 @@ int main(int argc, char *argv[])
         {
           m_buffer_empty = false;
           m_av_clock->OMXResume();
-          //printf("buffering timed out\n");
+          printf("buffering timed out\n");
         }
       }
     }
