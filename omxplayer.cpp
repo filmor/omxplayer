@@ -56,6 +56,7 @@ extern "C" {
 #include "OMXPlayerSubtitles.h"
 #include "DllOMX.h"
 #include "Srt.h"
+#include "cores/AlsaAudioCallback.h"
 
 #include <string>
 #include <utility>
@@ -101,6 +102,7 @@ bool              m_has_subtitle        = false;
 float             m_display_aspect      = 0.0f;
 bool              m_boost_on_downmix    = false;
 bool              m_gen_log             = false;
+AlsaAudioCallback m_alsa_audio_callback;
 
 enum{ERROR=-1,SUCCESS,ONEBYTE};
 
@@ -843,6 +845,8 @@ int main(int argc, char *argv[])
                                          m_boost_on_downmix, m_thread_player, audio_queue_size, audio_fifo_size))
     goto do_exit;
 
+  m_player_audio.RegisterAudioCallback(&m_alsa_audio_callback);
+
   m_av_clock->SetSpeed(DVD_PLAYSPEED_NORMAL);
   m_av_clock->OMXStart(0.0);
   m_av_clock->OMXPause();
@@ -996,6 +1000,7 @@ int main(int argc, char *argv[])
           m_av_clock->OMXPause();
           if(m_has_subtitle)
             m_player_subtitles.Pause();
+          m_alsa_audio_callback.Pause();
         }
         else
         {
@@ -1003,6 +1008,7 @@ int main(int argc, char *argv[])
             m_player_subtitles.Resume();
           SetSpeed(OMX_PLAYSPEED_NORMAL);
           m_av_clock->OMXResume();
+          m_alsa_audio_callback.Resume();
         }
         break;
       case '-':
@@ -1095,6 +1101,7 @@ int main(int argc, char *argv[])
         if(m_player_audio.GetDelay() < m_player_audio.GetCacheTotal() * 0.1f)
         {
           m_av_clock->OMXPause();
+          m_alsa_audio_callback.Pause();
           has_buffered = true;
         }
       }
@@ -1103,6 +1110,7 @@ int main(int argc, char *argv[])
         if(m_player_audio.GetDelay() > m_player_audio.GetCacheTotal() * 0.75f &&
            (!has_buffered || (m_player_video.GetLevel() > 75 && m_player_audio.GetLevel() > 75)))
         {
+          m_alsa_audio_callback.Resume();
           m_av_clock->OMXResume();
         }
       }

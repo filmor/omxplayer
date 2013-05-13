@@ -847,22 +847,42 @@ unsigned int COMXAudio::AddPackets(const void* data, unsigned int len, double dt
   if (!m_Passthrough && m_pCallback)
   {
     unsigned int mylen = std::min(len, sizeof m_visBuffer);
-    memcpy(m_visBuffer, data, mylen);
+    if((m_downmix_channels == 6 || m_downmix_channels == 8) &&
+       m_OutputChannels == 2) {
+      int channels = 8;
+      for(unsigned i = 0; i < mylen / (channels * 2); i++) {
+        ((short*)m_visBuffer)[i * 2 + 0] = ((short*)data)[i * channels + 1];
+        ((short*)m_visBuffer)[i * 2 + 1] = ((short*)data)[i * channels + 2];
+        ((short*)m_visBuffer)[i * 2 + 0] += ((short*)data)[i * channels + 3];
+        ((short*)m_visBuffer)[i * 2 + 1] += ((short*)data)[i * channels + 4];
+        ((short*)m_visBuffer)[i * 2 + 0] += ((short*)data)[i * channels + 5];
+        ((short*)m_visBuffer)[i * 2 + 1] += ((short*)data)[i * channels + 5];
+        ((short*)m_visBuffer)[i * 2 + 0] += ((short*)data)[i * channels + 0];
+        ((short*)m_visBuffer)[i * 2 + 1] += ((short*)data)[i * channels + 0];
+      }
+      mylen = (mylen / channels) * 2;
+    } else {
+      memcpy(m_visBuffer, data, mylen);
+    }
     m_visBufferLength = mylen;
   }
 
   if(m_eEncoding == OMX_AUDIO_CodingDTS && m_LostSync && (m_Passthrough || m_HWDecode))
   {
     int skip = SyncDTS((uint8_t *)data, len);
-    if(skip > 0)
+    if(skip > 0) {
+      printf("Returning early due to DTS\n");
       return len;
+    }
   }
 
   if(m_eEncoding == OMX_AUDIO_CodingDDP && m_LostSync && (m_Passthrough || m_HWDecode))
   {
     int skip = SyncAC3((uint8_t *)data, len);
-    if(skip > 0)
+    if(skip > 0) {
+      printf("Returning early due to AC3\n");
       return len;
+    }
   }
 
   unsigned int demuxer_bytes = (unsigned int)len;
@@ -1099,6 +1119,8 @@ unsigned int COMXAudio::AddPackets(const void* data, unsigned int len, double dt
  
   }
 
+  DoAudioWork();
+
   return len;
 }
 
@@ -1178,6 +1200,8 @@ void COMXAudio::WaitCompletion()
 {
   if(!m_Initialized || m_Pause)
     return;
+
+  printf("WaitCompletion\n");
 
   OMX_ERRORTYPE omx_err = OMX_ErrorNone;
   OMX_BUFFERHEADERTYPE *omx_buffer = m_omx_decoder.GetInputBuffer();
